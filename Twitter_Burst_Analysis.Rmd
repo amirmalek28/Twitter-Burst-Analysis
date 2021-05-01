@@ -1,0 +1,182 @@
+---
+title: "Twitter Burst Analysis"
+author: "Amir Malek"
+date: "4/30/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=TRUE}
+
+rm(list = ls())
+setwd("/Users/amirmalek/Desktop/NYU/Spring 2021/DSGA 1015/Project")
+
+```
+
+```{r echo=TRUE}
+
+
+```
+
+
+```{r echo=TRUE}
+
+setup_twitter_oauth(api_key, api_secret, token, token_secret)
+
+```
+
+
+```{r echo=TRUE}
+
+#install.packages("rtweet")
+library(rtweet)
+library(ggplot2)
+```
+
+
+```{r echo=TRUE}
+#Trends
+
+us_trends <- get_trends("united states")
+us_trends
+
+```
+
+
+```{r echo=TRUE}
+
+tweets_mixed <- search_tweets(
+  "filter:verified OR -filter:verified", n = 1000, geocode = lookup_coords("usa"), since = "2021-04-29", include_rts = FALSE, until = "2021-05-01", retryonratelimit = TRUE)
+
+```
+```{r echo=TRUE}
+
+tweets_popular <- search_tweets(
+  "filter:verified OR -filter:verified", n = 100, type = "popular")
+
+```
+
+
+```{r echo=TRUE}
+
+stream_tweets <- vector("list", 5)
+stream_function <- function (x){
+for (i in seq_len(5)) {
+    stream_tweets  <- stream_tweets(q = lookup_coords("USA"), n = 1000)
+    Sys.sleep(x)
+}
+}
+
+stream_function(300)
+```
+```{r echo=TRUE}
+
+stream <- as.data.frame(stream)
+stream_append <- rbind(stream,stream)
+
+```
+
+```{r echo=TRUE}
+
+ts_plot(tweets_mixed, "seconds") +
+  labs(x = NULL, y = NULL,
+       title = "Frequency of tweets",
+       subtitle = paste0(format(min(tweets_mixed$created_at), "%d %B %Y"), " to ", format(max(tweets_mixed$created_at),"%d %B %Y")),
+       caption = "Data collected from Twitter's REST API via rtweet") +
+  theme_minimal()
+
+
+```
+
+
+```{r echo=TRUE}
+
+
+
+```
+
+
+
+```{r echo=TRUE}
+
+library(bursts)
+library(readtext)
+library(tm)
+#Burstiness aims to detect surges in streams of documents (dramatic shifts in usage over time)
+#Surges need to be long or intense to be bursty
+
+# 1  Loading bursty function: a repurposing of some guts of kleinberg()
+
+bursty <- function(word, DTM, date) {
+  word.vec <- DTM[, which(colnames(DTM) == word)]
+  if(length(word.vec) == 0) {
+    print(paste(word, " does not exist in this corpus."))
+    return()
+  } 
+  else {
+    word.times <- c(0,which(as.vector(word.vec)>0))
+    
+    kl <- kleinberg(word.times, gamma = 0.5)
+    kl$start <- date[kl$start+1]
+    kl$end <- date[kl$end]
+    max_level <- max(kl$level)
+    
+    plot(c(kl$start[1], kl$end[1]), c(1,max_level),
+         type = "n", xlab = "Time", ylab = "Level", bty = "n",
+         xlim = c(min(date), max(date)), ylim = c(1, max_level),
+         yaxt = "n")
+    axis(2, at = 1:max_level)
+    
+    for (i in 1:nrow(kl)) {
+      if (kl$start[i] != kl$end[i]) {
+        arrows(kl$start[i], kl$level[i], kl$end[i], kl$level[i], code = 3, angle = 90,
+               length = 0.05)
+      } 
+      else {
+        points(kl$start[i], kl$level[i])
+      }
+    }
+    
+    print(kl)
+  }
+}
+
+corp <- readRDS("news_data.rds")
+
+corp <- as.data.frame(corp)
+news_corpus <- corpus(corp, text_field = "headline")
+
+docvars(news_corpus)$date <- as.numeric(gsub("[[:punct:]]","",docvars(news_corpus)$date))
+
+news_dfm <- dfm(news_corpus)
+
+bursty("", news_dfm, docvars(news_corpus)$date)
+bursty("", news_dfm, docvars(news_corpus)$date)
+bursty("", news_dfm, docvars(news_corpus)$date)
+
+
+```
+
+
+```{r echo=TRUE}
+
+
+
+```
+
+
+```{r echo=TRUE}
+
+
+
+```
+
+
+```{r echo=TRUE}
+
+
+
+```
