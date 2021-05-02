@@ -62,20 +62,45 @@ tweets_popular <- search_tweets(
 
 ```{r echo=TRUE}
 
-stream_tweets <- vector("list", 5)
-stream_function <- function (x){
-for (i in seq_len(5)) {
-    stream_tweets  <- stream_tweets(q = lookup_coords("USA"), n = 1000)
-    Sys.sleep(x)
-}
+stream_df <- stream_tweets(q = lookup_coords("USA"), n = 5000, timeout = 120)
+stream_df <- as.data.frame(stream_df)
+
+#number of hours to run
+hours <- 24
+#stream every x minutes
+minutes <- 15
+#stream for y seconds
+seconds <- 120
+seq_loop <- (60/minutes)*hours
+
+trending <- vector(mode = "list", length = seq_loop)
+
+#stream_function <- function (x){
+for (i in seq_len(1)) {
+    message("Starting stream ", i)
+    streamer  <- stream_tweets(q = lookup_coords("USA"), n = 5000, timeout = seconds)
+    message("Done streaming ", nrow(streamer), " tweets")
+    streamer <- as.data.frame(streamer)
+    stream_df <- rbind(stream_df, streamer)
+    message("Appended stream_df and streamer")
+    trending[[i]] <- get_trends("united states")
+    message("Updated current US trends")
+
+    Sys.sleep(minutes)
 }
 
-stream_function(300)
+
+#stream_function(1)
 ```
+
+
 ```{r echo=TRUE}
 
-stream <- as.data.frame(stream)
-stream_append <- rbind(stream,stream)
+trending <- vector(mode = "list", length = seq_loop)
+nrow(streamer)
+trending[[5]] <- get_trends("united states")
+
+message("Done streaming ", nrow(streamer), " tweets")
 
 ```
 
