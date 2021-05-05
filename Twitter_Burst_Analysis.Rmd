@@ -24,7 +24,7 @@ setwd("/Users/amirmalek/Desktop/NYU/Spring 2021/DSGA 1015/Project")
 
 ```{r echo=TRUE}
 
-#install.packages("tidyverse")
+install.packages("lemon")
 library(bursts)
 library(readtext)
 library(tm)
@@ -35,6 +35,8 @@ library(tidyverse)
 library(quanteda)
 library(data.table)
 library(stringr)
+library(ngram)
+library(lemon)
 ```
 
 
@@ -103,7 +105,7 @@ for (i in seq_len(seq_loop)) {
 
 ```{r echo=TRUE}
 
-ts_plot(twitter_data, "hours") +
+ts_plot(twitter_data[1:50683,], "hours") +
   labs(x = NULL, y = NULL,
        title = "Frequency of tweets",
        subtitle = paste0(format(min(twitter_data$created_at), "%d %B %Y"), " to ", format(max(twitter_data$created_at),"%d %B %Y")),
@@ -129,12 +131,6 @@ twitter_data <- readRDS("twitter_data_large.rds")
 
 ```{r echo=TRUE}
 
-
-#Burstiness aims to detect surges in streams of documents (dramatic shifts in usage over time)
-#Surges need to be long or intense to be bursty
-
-# 1  Loading bursty function: a repurposing of some guts of kleinberg()
-
 bursty <- function(word, DTM, date) {
   word.vec <- DTM[, which(colnames(DTM) == word)]
   if(length(word.vec) == 0) {
@@ -151,7 +147,7 @@ bursty <- function(word, DTM, date) {
     
     plot(c(kl$start[1], kl$end[1]), c(1,max_level),
          type = "n", xlab = "Time", ylab = "Level", bty = "n",
-         xlim = c(0, 2400), ylim = c(1, max_level),
+         xlim = c(0,2400), ylim = c(1, max_level),
          yaxt = "n", main = paste("Burstiness of ", word, "over time") )
     axis(2, at = 1:max_level)
     
@@ -164,13 +160,13 @@ bursty <- function(word, DTM, date) {
         points(kl$start[i], kl$level[i])
       }
     }
-    
+    #xlim = c(min(date), max(date))
     print(kl)
   }
 }
 
 #select relevant columns
-twitter_data_comp <-twitter_data %>% select(3,5,17)
+twitter_data_comp <-twitter_data[1:50683,]%>% select(3,5,17)
 
 #create corpus
 twitter_corpus <- corpus(twitter_data_comp, text_field = "text")
@@ -188,41 +184,45 @@ docvars(twitter_corpus)$created_at <- (gsub("[[:alpha:]]","",docvars(twitter_cor
 
 #remove date
 docvars(twitter_corpus)$created_at <- (gsub("20210502","",docvars(twitter_corpus)$created_at))
+docvars(twitter_corpus)$created_at <- (gsub("20210503","",docvars(twitter_corpus)$created_at))
 
 docvars(twitter_corpus)$created_at <- as.numeric(substr(docvars(twitter_corpus)$created_at,1,nchar(docvars(twitter_corpus)$created_at)-2))
-# 
+
 # docvars(twitter_corpus)$created_at <- sub("([[:digit:]]{2,2})$", ":\\1", docvars(twitter_corpus)$created_at)
 
+twitter_data_ngrams <- tokens(twitter_data_comp$text)
+twitter_data_ngrams <- tokens_ngrams(twitter_data_ngrams, n = c(1L, 2L, 3L))
 
 #create dfm with filters
-twitter_dfm <- dfm(twitter_corpus, stem = F, remove_punct = F, tolower = T, remove_numbers = F,   remove = c(stopwords("english"), "http","https","rt", "t.co", ".", ",","!","?",":",";","&","-",")","/","\U0001f602","\U0001f923","(","@",'"'))
+twitter_dfm <- dfm(twitter_data_ngrams, stem = F, remove_punct = F, tolower = T, remove_numbers = F,   remove = c(stopwords("english"), "http","https","rt", "t.co", ".", ",","!","?",":",";","&","-",")","/","\U0001f602","\U0001f923","(","@",'"'))
 
-topfeatures <- topfeatures(twitter_dfm, 10000)
+
+# twitter_dfm <- dfm(twitter_corpus, stem = F, remove_punct = F, tolower = T, remove_numbers = F,   remove = c(stopwords("english"), "http","https","rt", "t.co", ".", ",","!","?",":",";","&","-",")","/","\U0001f602","\U0001f923","(","@",'"'))
+
+topfeatures <- topfeatures(twitter_dfm, 100000)
 topfeatures <- as.data.frame(topfeatures)
 #topfeatures <- data.frame(matrix(unlist(topfeatures), ncol = max(lengths(topfeatures)), byrow = TRUE))
 
-
-docvars(twitter_corpus)
+#docvars(twitter_corpus)
 ```
 
 ```{r echo=TRUE}
 #visualize burstiness
 
-trafford_burst <- bursty("just", twitter_dfm, docvars(twitter_corpus)$created_at)
+bursty("old_trafford", twitter_dfm, docvars(twitter_corpus)$created_at)
 trafford_burst$duration <- trafford_burst$end - trafford_burst$start
 max(trafford_burst$level)
 ```
 
 ```{r echo=TRUE}
 
-#twitter_data_filter <- twitter_data_comp %>%
-  #filter(str_detect(text, "#UFCVegas25"))
+iter <- 70
 
-iter <- 80
+words_to_search <- "old_trafford"
 
-words_to_search <- "trafford"
+twitter_data_filter<- twitter_data[1:50683,]
 
-twitter_data_filter<- twitter_data
+#twitter_data_filter<-twitter_data_ngrams
 
 twitter_data_filter$text <- tolower(twitter_data_filter$text)
 
@@ -238,19 +238,20 @@ twitter_data_filter$created_at <- (gsub(" ","",twitter_data_filter$created_at))
 twitter_data_filter$created_at <- (gsub("20210502","",twitter_data_filter$created_at))
 twitter_data_filter$created_at <- (gsub("20210503","",twitter_data_filter$created_at))
 
-#remove minutes from time, only hours
-twitter_data_filter$created_at <- substr(twitter_data_filter$created_at,1,nchar(twitter_data_filter$created_at)-4)
+#remove seconds from time, only hours and minutes
+twitter_data_filter$created_at <- substr(twitter_data_filter$created_at,1,nchar(twitter_data_filter$created_at)-2)
 
-#group by hour
+#group by minute
 twitter_data_filter <- twitter_data_filter %>% group_by(created_at) %>% summarise(n=n())
 
 twitter_data_filter[,1] <- sapply(twitter_data_filter[,1], as.numeric)
 
-created_at <- c(0:23)
-n <- rep(0,24)
+created_at <- seq(0,2300, by = 1)
+n <- rep(0,2301)
 temp_df <- data.frame(created_at, n)
 
 #twitter_data_filter <- merge(temp_df, twitter_data_filter, by.x = "created_at", by.y = "created_at")
+twitter_data_filter$created_at <- floor(twitter_data_filter$created_at)
 
 twitter_data_filter <- left_join(temp_df,twitter_data_filter, by = "created_at")
 
@@ -265,7 +266,7 @@ twitter_data_filter$n[is.na(twitter_data_filter$n)] <- 0
 #unlist
 #twitter_data_filter <- as.numeric(unlist(twitter_data_filter))
 
-ggplot(twitter_data_filter, aes(created_at, n)) + geom_bar(stat = "identity")
+ggplot(twitter_data_filter, aes(created_at, n)) + geom_bar(stat = "identity", width = 10)  + labs(title= paste("Number of ", words_to_search, "tweets")  ,x="Time", y = "Number of tweets")
 ```
 
 
@@ -369,14 +370,13 @@ ggplot(trend_rank_df, aes(time, rank, group = 1)) +
 ```{r echo=TRUE}
 
 #average ranking- not including unranked 0s
-
 #max burst level
-#
+
 ranking_seq <- c(1:iter)
 all_trends_ranked <- data.frame(trend = character(), mean_ranking = numeric(), best_ranking = numeric() )
 for (i in seq_len(50)) {
   for (j in seq_len(80)){
-    trend_to_rank <- trends_df[i,j]
+    trend_to_rank <- trends_df[j,i]
     trend_ranking <- vector()
     for (i in ranking_seq) {
       rank <- which(grepl(trend_to_rank, trends_df[,i]))
@@ -388,8 +388,7 @@ for (i in seq_len(50)) {
 }
 }
 
-mean_ranking <- mean(trend_ranking)
-message(mean_ranking)
+mean_ranking <- mean(trend_ranking[trend_ranking>0])
 best_ranking <- min(trend_ranking[trend_ranking>0])
 
 row_temp <- c(trend_to_rank, mean_ranking, best_ranking)
@@ -398,27 +397,15 @@ all_trends_ranked <- rbind(all_trends_ranked, row_temp)
   }
 }
 
+names(all_trends_ranked)[1] <- "trend"
+names(all_trends_ranked)[2] <- "mean_ranking"
+names(all_trends_ranked)[3] <- "best_ranking"
+
 all_trends_ranked <- all_trends_ranked [complete.cases(all_trends_ranked), ]
+all_trends_ranked <- distinct(all_trends_ranked)
+all_trends_ranked$best_ranking <- as.numeric (all_trends_ranked$best_ranking)
 
 
-
-
-trend_ranking <- vector()
-ranking_seq <- c(1:iter)
-for (i in ranking_seq) {
-rank <- which(grepl(trend_to_rank, trends_df[,i]))
-
-if (length(rank) > 0) {
-trend_ranking <- append (trend_ranking, rank)
-}
-else {
-trend_ranking <- append (trend_ranking, 0)
-
-}
-}
-
-mean_ranking <- mean(trend_ranking)
-best_ranking <- min(trend_ranking[trend_ranking>0])
 
 # ggplot(trend_rank_df, aes(time, rank, group = 1)) + 
 #   geom_line() + labs(title= paste("Trend ranking of ", trend_to_rank)  ,x="Time", y = "Rank") +
@@ -429,12 +416,84 @@ best_ranking <- min(trend_ranking[trend_ranking>0])
 
 ```{r echo=TRUE}
 
+all_trends_ranked <- all_trends_ranked_save
 
+bursty_values <- function(word, DTM, date) {
+  word.vec <- DTM[, which(colnames(DTM) == word)]
+  if(length(word.vec) == 0) {
+    print(paste(word, " does not exist in this corpus."))
+    return()
+  } 
+  else {
+    word.times <- c(0,which(as.vector(word.vec)>0))
+    
+    kl <- kleinberg(word.times, gamma = 0.5)
+    kl$start <- date[kl$start+1]
+    kl$end <- date[kl$end]
+    max_level <- max(kl$level)
+    
+    invisible(kl)
+  }
+}
+    
+
+all_trends_ranked$trend <- tolower(all_trends_ranked$trend)
+all_trends_ranked$trend <- (gsub(" ","_",all_trends_ranked$trend))
+
+for (i in seq_len(nrow(all_trends_ranked))){
+burst <- bursty_values(all_trends_ranked$trend[i], twitter_dfm, docvars(twitter_corpus)$created_at)
+if (is.null(burst) == T) {
+  all_trends_ranked$max_burst_level[i] <- 0
+  all_trends_ranked$max_burst_duration[i] <-  0
+  all_trends_ranked$min_burst_duration[i] <-  0
+
+  next
+}
+burst$duration <- burst$end - burst$start
+all_trends_ranked$max_burst_level[i] <- max(burst$level)
+all_trends_ranked$max_burst_duration[i] <-  max(burst$duration)
+all_trends_ranked$min_burst_duration[i] <-  min(burst$duration)
+
+}
+
+
+
+for (i in seq_len(nrow(all_trends_ranked))){
+  words_to_search <- all_trends_ranked$trend[i]
+  all_trends_ranked$number_of_mentions[i] <-  topfeatures[words_to_search,]
+}
+
+
+all_trends_ranked <- all_trends_ranked[order(all_trends_ranked[,3], -all_trends_ranked[,4]),]
+
+#head(all_trends_ranked,9)
 
 ```
 
 ```{r echo=TRUE}
 
+rank_vs_burst <- aggregate(all_trends_ranked[, 4], list(all_trends_ranked$best_ranking), mean)
+names(rank_vs_burst)[1] <- "ranking"
+names(rank_vs_burst)[2] <- "burst_level"
+ggplot(rank_vs_burst, aes(ranking, burst_level)) + geom_point() + labs(title= "Mean Burst Level over Increasing Rankings"  ,x="Ranking", y = "Mean Burst Level")
 
 
+rank_vs_burst_dur <- aggregate(all_trends_ranked[, 5], list(all_trends_ranked$best_ranking), mean)
+names(rank_vs_burst_dur)[1] <- "ranking"
+names(rank_vs_burst_dur)[2] <- "max_duration"
+ggplot(rank_vs_burst_dur, aes(ranking, max_duration)) + geom_point() + labs(title= "Mean Max Duration over Increasing Rankings"  ,x="Ranking", y = "Mean Max Duration")
+
+
+rank_vs_burst_mindur <- aggregate(all_trends_ranked[, 6], list(all_trends_ranked$best_ranking), mean)
+names(rank_vs_burst_mindur)[1] <- "ranking"
+names(rank_vs_burst_mindur)[2] <- "min_duration"
+ggplot(rank_vs_burst_mindur, aes(ranking, min_duration)) + geom_point() + labs(title= "Mean Minimum Duration over Increasing Rankings"  ,x="Ranking", y = "Mean Min Duration")
+
+
+rank_vs_mentions <- all_trends_ranked %>% select(3,7) 
+rank_vs_mentions <- rank_vs_mentions [complete.cases(rank_vs_mentions), ]
+rank_vs_mentions <- aggregate(rank_vs_mentions[, 2], list(rank_vs_mentions$best_ranking), mean)
+names(rank_vs_mentions)[1] <- "ranking"
+names(rank_vs_mentions)[2] <- "number_of_mentions"
+ggplot(rank_vs_mentions, aes(ranking, number_of_mentions)) + geom_point() + labs(title= "Mean Number of Mentions over Increasing Rankings"  ,x="Ranking", y = "Mean Number of Mentions")
 ```
