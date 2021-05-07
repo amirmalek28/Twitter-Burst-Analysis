@@ -1,5 +1,3 @@
-# Twitter-Burst-Analysis
-
 ## Comparative Analysis between Bursty Twitter Events and Real-Time Trends
 
 
