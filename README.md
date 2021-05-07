@@ -7,7 +7,7 @@ Using rtweet, we designed a data crawler which streams live tweets for 2 minutes
 
 ![Figure 1](/figures/tweet_stream_frequency.png)
 
-In order to discover latent structure or correlation among the data, we performed several data manipulations to consolidate all of the data and metrics in one dataframe. First, we iterate through all instances of the trends list from various times of day, appending each instance as one column. We can then compute the mean, minimum, and best ranking for each trend in the dataframe (called all_trends_ranked). Next, we iterate through each row of this dataframe, and compute the mean, minimum and maximum of the burstiness level and duration for each trend, and also append the number of mentions of the trend, computed by filtering from the top features of the dfm.
+In order to discover latent structure or correlation among the data, we performed several data manipulations to consolidate all of the data and metrics in one dataframe. First, we iterate through all instances of the trends list from various times of day, appending each instance as one column. We can then compute the mean, minimum, and best ranking for each trend in the dataframe. Next, we iterate through each row of this dataframe, and compute the mean, minimum and maximum of the burstiness level and duration for each trend, and also append the number of mentions of the trend, computed by filtering from the top features of the dfm.
 
 ![Table 1](/figures/all_trends_ranked_df.png)
 
